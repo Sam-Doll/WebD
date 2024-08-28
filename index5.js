@@ -1,29 +1,75 @@
 import express from "express";
+import bodyParser from "body-parser";
+import pg from "pg";
+
 const app = express();
 const port = 3000;
 
-app.get("/", (req, res) => {
-  res.send("<h1>Home Page</h1>");
+const db= new pg.Client({
+  user: "postgres",
+  host: "localhost",
+  database: "world",
+  password:"Pass",
+  port:5432,
 });
 
-app.post("/register", (req, res) => {
-  //Do something with the data
-  res.sendStatus(201);
+db.connect();
+
+db.query("select * from capitals", (err,res)=>{
+  if(err){
+    console.error("error executing query ", err.stack);
+  } else{
+    quiz=res.rows;
+  }
+  db.end();
 });
 
-app.put("/user/angela", (req, res) => {
-  res.sendStatus(200);
+let quiz = [
+  { country: "France", capital: "Paris" },
+  { country: "United Kingdom", capital: "London" },
+  { country: "United States of America", capital: "New York" },
+];
+
+let totalCorrect = 0;
+
+// Middleware
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static("public"));
+
+let currentQuestion = {};
+
+// GET home page
+app.get("/", async (req, res) => {
+  totalCorrect = 0;
+  await nextQuestion();
+  console.log(currentQuestion);
+  res.render("index.ejs", { question: currentQuestion });
 });
 
-app.patch("/user/angela", (req, res) => {
-  res.sendStatus(200);
+// POST a new post
+app.post("/submit", (req, res) => {
+  let answer = req.body.answer.trim();
+  let isCorrect = false;
+  if (currentQuestion.capital.toLowerCase() === answer.toLowerCase()) {
+    totalCorrect++;
+    console.log(totalCorrect);
+    isCorrect = true;
+  }
+
+  nextQuestion();
+  res.render("index.ejs", {
+    question: currentQuestion,
+    wasCorrect: isCorrect,
+    totalScore: totalCorrect,
+  });
 });
 
-app.delete("/user/angela", (req, res) => {
-  //Deleting
-  res.sendStatus(200);
-});
+async function nextQuestion() {
+  const randomCountry = quiz[Math.floor(Math.random() * quiz.length)];
+
+  currentQuestion = randomCountry;
+}
 
 app.listen(port, () => {
-  console.log(`Server started on port ${port}`);
+  console.log(`Server is running at http://localhost:${port}`);
 });
